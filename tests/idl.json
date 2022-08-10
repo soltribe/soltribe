@@ -1,0 +1,555 @@
+{
+  "version": "0.1.0",
+  "name": "solomon",
+  "instructions": [
+    {
+      "name": "initCreator",
+      "accounts": [
+        {
+          "name": "creator",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "creatorAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "username",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "initCollection",
+      "accounts": [
+        {
+          "name": "creator",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "creatorAccount",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "collection",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "paymentVault",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "mint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "artType",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "uploadContent",
+      "accounts": [
+        {
+          "name": "creator",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "creatorAccount",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "collection",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "content",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "contentCid",
+          "type": "string"
+        },
+        {
+          "name": "artCid",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "createMasterEditionNft",
+      "accounts": [
+        {
+          "name": "creator",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "collection",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "content",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "mint",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "metadata",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "masterEdition",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "nftInfoAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "nftVault",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "metadataTitle",
+          "type": "string"
+        },
+        {
+          "name": "metadataSymbol",
+          "type": "string"
+        },
+        {
+          "name": "metadataUri",
+          "type": "string"
+        },
+        {
+          "name": "mintPrice",
+          "type": "u64"
+        },
+        {
+          "name": "maxSupply",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "purchaseNft",
+      "accounts": [
+        {
+          "name": "buyer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "collection",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "content",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "nftInfoAccount",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "paymentVault",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "creator",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "masterEditionVault",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "masterEdition",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "masterEditionMetadata",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "newMint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "newMetadata",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "printEdition",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "editionMarkPda",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "buyerTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "buyerNftVault",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Creator",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "publicKey"
+          },
+          {
+            "name": "username",
+            "type": "string"
+          },
+          {
+            "name": "joinDate",
+            "type": "i64"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "collections",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Collection",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "publicKey"
+          },
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "createdAt",
+            "type": "i64"
+          },
+          {
+            "name": "lastUpdated",
+            "type": "i64"
+          },
+          {
+            "name": "artType",
+            "type": "u8"
+          },
+          {
+            "name": "items",
+            "type": "u64"
+          },
+          {
+            "name": "purchaseMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "paymentVault",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Content",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "publicKey"
+          },
+          {
+            "name": "collection",
+            "type": "publicKey"
+          },
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "artType",
+            "type": "u8"
+          },
+          {
+            "name": "contentCid",
+            "type": "string"
+          },
+          {
+            "name": "coverArtCid",
+            "type": "string"
+          },
+          {
+            "name": "nftInfoAccount",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NftDetails",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "content",
+            "type": "publicKey"
+          },
+          {
+            "name": "mintPrice",
+            "type": "u64"
+          },
+          {
+            "name": "maxPrintEditions",
+            "type": "u64"
+          },
+          {
+            "name": "mintedCopies",
+            "type": "u64"
+          },
+          {
+            "name": "masterEdition",
+            "type": "publicKey"
+          },
+          {
+            "name": "masterEditionMetadata",
+            "type": "publicKey"
+          },
+          {
+            "name": "masterEditionMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "masterEditionVault",
+            "type": "publicKey"
+          },
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "symbol",
+            "type": "string"
+          },
+          {
+            "name": "uri",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "ArtType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Writing"
+          },
+          {
+            "name": "Video"
+          },
+          {
+            "name": "Music"
+          },
+          {
+            "name": "Painting"
+          },
+          {
+            "name": "Design"
+          },
+          {
+            "name": "Photography"
+          },
+          {
+            "name": "Adult"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "MaxUsernameLengthExceeded"
+    },
+    {
+      "code": 6001,
+      "name": "MaxDescriptionLengthExceeded"
+    },
+    {
+      "code": 6002,
+      "name": "MaxTitleLengthExceeded"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidArtTypeConversion"
+    },
+    {
+      "code": 6004,
+      "name": "MaxCIDLengthExceeded"
+    },
+    {
+      "code": 6005,
+      "name": "MaxSymbolLengthExceeded"
+    },
+    {
+      "code": 6006,
+      "name": "MaxURILengthExceeded"
+    },
+    {
+      "code": 6007,
+      "name": "InsufficientBalance"
+    }
+  ]
+}
