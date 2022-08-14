@@ -5,21 +5,29 @@ use anchor_lang:: {
 };
 use anchor_spl::{ 
     token::{Token, Mint, TokenAccount, Transfer},
-    associated_token::AssociatedToken,
+    associated_token::AssociatedToken
 };
+
 use mpl_token_metadata::{instruction as mpl_instruction, ID as TOKEN_METADATA_PROGRAM_ID};
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("3ZYjtd9hy9JRTNqwFdv7ssywiAVydKMgV8gR7CSaTSCK");
+
+pub const EDITION_MARKER_BIT_SIZE: u64 = 248;
+pub const PREFIX: &str = "metadata";
+pub const EDITION: &str = "edition";
 
 #[program]
 pub mod solomon {
     use super::*;
 
-    pub fn init_creator(ctx: Context<InitCreator>, username: String, description: String) -> Result<()> {
+    pub fn init_creator(ctx: Context<InitCreator>, username: String, description: String, picture_cid: String) -> Result<()> {
         require!(username.len() < Creator::MAX_USERNAME_LEN, 
             SolomonError::MaxUsernameLengthExceeded);
         require!(description.len() < Creator::MAX_DESCRIPTION_LEN, 
             SolomonError::MaxDescriptionLengthExceeded);
+        require!(picture_cid.len() < Creator::CID_LEN, SolomonError::MaxCIDLengthExceeded);
+
+        msg!("creator_account_key: {}", ctx.accounts.creator_account.key());
 
         let creator = &mut ctx.accounts.creator_account;
         let clock = clock::Clock::get().unwrap();
@@ -30,25 +38,20 @@ pub mod solomon {
         creator.description = description;
         creator.bump = *ctx.bumps.get("creator_account").unwrap();
         creator.collections = 0;
+        creator.profile_picture_cid = picture_cid;
         Ok(())
     }
 
-    pub fn init_collection(ctx: Context<CreateCollection>, title: String, art_type: u8) -> Result<()> {
-        require!(title.len() <= Collection::MAX_TITLE_LEN,
-            SolomonError::MaxTitleLengthExceeded);
-
-        ArtType::from(art_type).unwrap();
-        
-        /*
-        match ArtType::from(art_type) {
-            ArtType => {},
-            SolomonError => {err!(SolomonError::InvalidArtTypeConversion)}
-        }*/
+    pub fn init_collection(ctx: Context<CreateCollection>, title: String, art_type: u8, art_cid: String) -> Result<()> {
+        require!(title.len() <= Collection::MAX_TITLE_LEN, SolomonError::MaxTitleLengthExceeded);
+        require!(art_cid.len() <= Content::CID_LEN, SolomonError::MaxCIDLengthExceeded);
+        _ = ArtType::from(art_type).unwrap();
         
         let collection = &mut ctx.accounts.collection;
         let clock = clock::Clock::get().unwrap();
 
         collection.creator = ctx.accounts.creator.key();
+        collection.id = ctx.accounts.creator_account.collections.checked_add(1).unwrap();
         collection.title = title;
         collection.created_at = clock.unix_timestamp;
         collection.last_updated = clock.unix_timestamp;
@@ -56,6 +59,9 @@ pub mod solomon {
         collection.items = 0;
         collection.purchase_mint = ctx.accounts.mint.key();
         collection.payment_vault = ctx.accounts.payment_vault.key();
+        collection.cover_art_cid = art_cid;
+        collection.nft_info_account = Pubkey::default();
+        collection.bump = *ctx.bumps.get("collection").unwrap();
 
         let creator = &mut ctx.accounts.creator_account;
         creator.collections = creator.collections.checked_add(1).unwrap();
@@ -63,24 +69,23 @@ pub mod solomon {
         Ok(())
     }
 
-    pub fn upload_content(ctx: Context<UploadContent>, title: String, content_cid: String, art_cid: String) -> Result<()> {
+    pub fn upload_content(ctx: Context<UploadContent>, title: String, content_cid: String) -> Result<()> {
         require!(content_cid.len() <= Content::CID_LEN, SolomonError::MaxCIDLengthExceeded);
-        require!(art_cid.len() <= Content::CID_LEN, SolomonError::MaxCIDLengthExceeded);
         require!(title.len() <= Content::MAX_TITLE_LEN, SolomonError::MaxTitleLengthExceeded);
-        let content = &mut ctx.accounts.content;
 
+        let clock = clock::Clock::get().unwrap();
+
+        let content = &mut ctx.accounts.content;
         content.creator = ctx.accounts.creator.key();
         content.collection = ctx.accounts.collection.key();
         content.title = title;
         content.content_cid = content_cid;
-        content.cover_art_cid = art_cid;
-        content.nft_info_account = Pubkey::default();
 
         let collection = &mut ctx.accounts.collection;
+        collection.last_updated = clock.unix_timestamp;
         collection.items = collection.items.checked_add(1).unwrap();
         Ok(())
     }
-
 
     pub fn create_master_edition_nft(
         ctx: Context<CreateMasterEdition>,
@@ -100,6 +105,8 @@ pub mod solomon {
         };
 
         // Create mint account
+        msg!("Creating mint account!");
+        msg!("{}", ctx.accounts.mint.key());
         system_program::create_account(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -114,6 +121,7 @@ pub mod solomon {
         )?;
 
         // Initialize mint account
+        msg!("Initializing mint account!");
         anchor_spl::token::initialize_mint(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -127,7 +135,23 @@ pub mod solomon {
             Some(&ctx.accounts.creator.key()),
         )?;
 
+        // Create nft vault
+        anchor_spl::associated_token::create(CpiContext::new(
+            ctx.accounts.associated_token_program.to_account_info(),
+            anchor_spl::associated_token::Create {
+                payer: ctx.accounts.creator.to_account_info(),
+                associated_token: ctx.accounts.nft_vault.to_account_info(),
+                authority: ctx.accounts.collection.to_account_info(),
+                mint: ctx.accounts.mint.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+                token_program: ctx.accounts.token_program.to_account_info(),
+                rent: ctx.accounts.rent.to_account_info(),
+            },
+        ))?;
+
+
         // Mint to token account(nft_vault)
+        msg!("Minting to nft vault");
         anchor_spl::token::mint_to(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -149,6 +173,7 @@ pub mod solomon {
             },
         ];
 
+        msg!("Creating metadata accounts");
         invoke(
             &mpl_instruction::create_metadata_accounts_v2(
                 TOKEN_METADATA_PROGRAM_ID,
@@ -170,7 +195,6 @@ pub mod solomon {
             &[
             ctx.accounts.metadata.to_account_info(),
             ctx.accounts.mint.to_account_info(),
-            //ctx.accounts.nft_vault.to_account_info(),
             ctx.accounts.creator.to_account_info(),
             ctx.accounts.system_program.to_account_info(),
             ctx.accounts.rent.to_account_info(),
@@ -178,6 +202,7 @@ pub mod solomon {
         )?;
 
         // Create master edition nft
+        msg!("Creating master edition");
         invoke(
             &mpl_instruction::create_master_edition_v3(
                 TOKEN_METADATA_PROGRAM_ID,
@@ -194,7 +219,6 @@ pub mod solomon {
                 ctx.accounts.mint.to_account_info(),
                 ctx.accounts.creator.to_account_info(),
                 ctx.accounts.metadata.to_account_info(),
-                //ctx.accounts.nft_vault.to_account_info(),
                 ctx.accounts.token_program.to_account_info(),
                 ctx.accounts.system_program.to_account_info(),
                 ctx.accounts.rent.to_account_info(),
@@ -202,7 +226,7 @@ pub mod solomon {
         )?;
 
         let nft_info = &mut ctx.accounts.nft_info_account;
-        nft_info.content = ctx.accounts.content.key();
+        nft_info.collection = ctx.accounts.collection.key();
         nft_info.mint_price = mint_price;
         nft_info.max_print_editions = max_supply;
         nft_info.minted_copies = 0;
@@ -214,17 +238,17 @@ pub mod solomon {
         nft_info.symbol = metadata_symbol.to_owned();
         nft_info.uri = metadata_uri.to_owned();
 
+        let collection = &mut ctx.accounts.collection;
+        collection.nft_info_account = ctx.accounts.nft_info_account.key();
+
         Ok(())
     }
 
-    pub fn purchase_nft(ctx: Context<MintNft>) -> Result<()> {
-        let collection_key = ctx.accounts.collection.key();
-        let collection = mpl_token_metadata::state::Collection {
-            verified: false,
-            key: collection_key,
-        };
 
+    pub fn purchase_nft(ctx: Context<MintNft>) -> Result<()> {
         // Create mint account
+        msg!("Creating mint account");
+        msg!("{}", ctx.accounts.new_mint.key());
         system_program::create_account(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -239,6 +263,7 @@ pub mod solomon {
         )?;
 
         // Initialize mint account
+        msg!("Initializing mint account");
         anchor_spl::token::initialize_mint(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -252,7 +277,23 @@ pub mod solomon {
             Some(&ctx.accounts.buyer.key()),
         )?;
 
+        // Creating buyer's ata
+        msg!("Creating buyer's nft token account");
+        anchor_spl::associated_token::create(CpiContext::new(
+            ctx.accounts.associated_token_program.to_account_info(),
+            anchor_spl::associated_token::Create {
+                payer: ctx.accounts.buyer.to_account_info(),
+                associated_token: ctx.accounts.buyer_nft_vault.to_account_info(),
+                authority: ctx.accounts.buyer.to_account_info(),
+                mint: ctx.accounts.new_mint.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+                token_program: ctx.accounts.token_program.to_account_info(),
+                rent: ctx.accounts.rent.to_account_info(),
+            },
+        ))?;
+
         // Mint to token account
+        msg!("Minting to token account");
         anchor_spl::token::mint_to(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -265,62 +306,24 @@ pub mod solomon {
             1,
         )?;
 
-        // Create metadata accounts
-        let creators = vec![
-            mpl_token_metadata::state::Creator {
-                address: ctx.accounts.buyer.key(),
-                verified: false,
-                share: 100,
-            },
-        ];
-
         let nft_info = &mut ctx.accounts.nft_info_account;
         let edition = nft_info.minted_copies.checked_add(1).unwrap();
-        let title = &nft_info.title;
-        let symbol = &nft_info.symbol;
-        let uri = &nft_info.uri;
-        let new_title = format!("{}-printV{}", title, edition.to_string());
 
-        invoke(
-            &mpl_instruction::create_metadata_accounts_v2(
-                TOKEN_METADATA_PROGRAM_ID,
-                ctx.accounts.new_metadata.key(),
-                ctx.accounts.new_mint.key(),
-                ctx.accounts.buyer.key(),
-                ctx.accounts.buyer.key(),
-                ctx.accounts.buyer.key(),
-                new_title,
-                symbol.to_owned(),
-                uri.to_owned(),
-                Some(creators),
-                1,
-                true,
-                false,
-                Some(collection),
-                None
-            ),
-            &[
-            ctx.accounts.new_metadata.to_account_info(),
-            ctx.accounts.new_mint.to_account_info(),
-            ctx.accounts.buyer.to_account_info(),
-            //ctx.accounts.buyer_nft_vault.to_account_info(),
-            ctx.accounts.system_program.to_account_info(),
-            ctx.accounts.rent.to_account_info(),
-            ],
-        )?;
 
         // Create Print edition nft
-        let bump = *ctx.bumps.get("collection").unwrap();
-        let title = &ctx.accounts.collection.title;
-        let creator_key = ctx.accounts.creator.key();
+        let bump = ctx.accounts.collection.bump;
+        let creator_key = ctx.accounts.collection.creator;
+        let collection_id_to_le_bytes = ctx.accounts.collection.id.to_le_bytes();
 
         let collection_seeds = &[
             "collection".as_bytes().as_ref(),
             creator_key.as_ref(),
-            title.as_bytes().as_ref(),
+            collection_id_to_le_bytes.as_ref(),
             &[bump]
         ];
-
+    
+        msg!("Creating print edition");
+        msg!("{}", ctx.accounts.print_edition.key());
         invoke_signed(
             &mpl_instruction::mint_new_edition_from_master_edition_via_token(
                 TOKEN_METADATA_PROGRAM_ID,
@@ -330,11 +333,11 @@ pub mod solomon {
                 ctx.accounts.new_mint.key(),
                 ctx.accounts.buyer.key(),
                 ctx.accounts.buyer.key(),
-                ctx.accounts.buyer.key(),
-                ctx.accounts.buyer_nft_vault.key(),
+                ctx.accounts.collection.key(),
+                ctx.accounts.master_edition_vault.key(),
                 ctx.accounts.buyer.key(),
                 ctx.accounts.master_edition_metadata.key(),
-                nft_info.master_edition_mint,
+                ctx.accounts.master_edition_mint.key(),
                 edition,
             ),
             &[
@@ -344,20 +347,24 @@ pub mod solomon {
                 ctx.accounts.new_mint.to_account_info(),
                 ctx.accounts.edition_mark_pda.to_account_info(),
                 ctx.accounts.buyer.to_account_info(),
+                ctx.accounts.master_edition_vault.to_account_info(),
                 ctx.accounts.collection.to_account_info(), // owner of nft_vault
                 ctx.accounts.master_edition_vault.to_account_info(),
                 ctx.accounts.buyer.to_account_info(),
                 ctx.accounts.master_edition_metadata.to_account_info(),
+                ctx.accounts.master_edition_mint.to_account_info(),
                 ctx.accounts.token_program.to_account_info(),
                 ctx.accounts.system_program.to_account_info(),
                 ctx.accounts.rent.to_account_info(),
+                ctx.accounts.token_metadata_program.to_account_info(),
             ],
             &[&collection_seeds[..]]
         )?;
-        //mpl_token_metadata::state::get_master_edition();
+
         nft_info.minted_copies = edition;
 
         // Make transfer as payment for minting
+        msg!("initializing transfer");
         let price = nft_info.mint_price;
         anchor_spl::token::transfer(
             CpiContext::new(
@@ -370,13 +377,11 @@ pub mod solomon {
             ),
             price
         )?;
-
         Ok(())
     }
 }
 
 #[derive(Accounts)]
-#[instruction(username: String)]
 pub struct InitCreator<'info> {
     #[account(mut)]
     creator: Signer<'info>,
@@ -384,7 +389,7 @@ pub struct InitCreator<'info> {
         init,
         payer = creator,
         space = 8 + Creator::SIZE,
-        seeds = ["creator".as_bytes().as_ref(), username.as_bytes().as_ref()],
+        seeds = ["creator".as_bytes().as_ref(), creator.key().as_ref()],
         bump
     )]
     creator_account: Box<Account<'info, Creator>>,
@@ -392,30 +397,30 @@ pub struct InitCreator<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(title: String)]
 pub struct CreateCollection<'info> {
     #[account(mut)]
     creator: Signer<'info>,
-    #[account(has_one = creator)]
+    #[account(mut, has_one = creator)]
     creator_account: Box<Account<'info, Creator>>,
     #[account(
         init,
         payer = creator,
         space = 8 + Collection::SIZE,
-        seeds = ["collection".as_bytes().as_ref(), creator.key().as_ref(), title.as_bytes().as_ref()],
+        seeds = ["collection".as_bytes().as_ref(), creator.key().as_ref(), (creator_account.collections + 1).to_le_bytes().as_ref()],
         bump
     )]
     collection: Box<Account<'info, Collection>>,
+    mint: Box<Account<'info, Mint>>,
+
     #[account(
         init,
         payer = creator,
         seeds = ["vault".as_bytes().as_ref(), collection.key().as_ref()],
         bump,
         token::mint = mint,
-        token::authority = creator,
+        token::authority = collection,
     )]
     payment_vault: Box<Account<'info, TokenAccount>>,
-    mint: Box<Account<'info, Mint>>,
 
     token_program: Program<'info, Token>, 
     associated_token_program: Program<'info, AssociatedToken>,
@@ -430,13 +435,13 @@ pub struct UploadContent<'info> {
     creator: Signer<'info>,
     #[account(has_one = creator)]
     creator_account: Box<Account<'info, Creator>>,
-    #[account(has_one = creator)]
+    #[account(mut, has_one = creator)]
     collection: Box<Account<'info, Collection>>,
     #[account(
         init,
         payer = creator,
         space = 8 + Content::SIZE,
-        seeds = [((collection.items + 1) as u64).to_le_bytes().as_ref(), collection.key().as_ref()],
+        seeds = ["content".as_bytes().as_ref(), collection.key().as_ref(), (collection.items + 1).to_le_bytes().as_ref()],
         bump
     )]
     content: Box<Account<'info, Content>>,
@@ -449,13 +454,11 @@ pub struct CreateMasterEdition<'info> {
     #[account(mut)]
     creator: Signer<'info>,
 
-    #[account(has_one = creator)]
-    collection: Box<Account<'info, Collection>>,
     #[account(
-        mut, has_one = collection, has_one = creator,
-        constraint = content.nft_info_account == Pubkey::default(),
+        mut, has_one = creator,
+        constraint = collection.nft_info_account == Pubkey::default()
     )]
-    content: Box<Account<'info, Content>>,
+    collection: Box<Account<'info, Collection>>,
 
     /// CHECK: Checks done by CPI to the token program
     #[account(mut, signer)]
@@ -471,33 +474,21 @@ pub struct CreateMasterEdition<'info> {
         init,
         payer = creator,
         space = 8 + NftDetails::SIZE,
-        seeds = ["nft-details".as_bytes().as_ref(), content.key().as_ref()],
+        seeds = ["nft-info".as_bytes().as_ref(), collection.key().as_ref()],
         bump
     )]
     nft_info_account: Box<Account<'info, NftDetails>>,
-    /*
-    #[account(
-        init,
-        payer = creator,
-        seeds = ["nft-vault".as_bytes().as_ref(), content.key().as_ref()],
-        bump,
-        token::mint = mint,
-        token::authority = creator,
-    )]
-    nft_vault: Account<'info, TokenAccount>,*/
 
-    #[account(
-        init_if_needed,
-        payer = creator,
-        associated_token::mint = mint,
-        associated_token::authority = collection,
-    )]
-    nft_vault: Box<Account<'info, TokenAccount>>,
+    ///CHECK: 
+    #[account(mut)]
+    nft_vault: UncheckedAccount<'info>,
 
     token_program: Program<'info, Token>,
     associated_token_program: Program<'info, AssociatedToken>,
     system_program: Program<'info, System>,
     rent: Sysvar<'info, Rent>,
+    /// CHECK: 
+    token_metadata_program: UncheckedAccount<'info>,
 }
 
 
@@ -506,55 +497,40 @@ pub struct MintNft<'info> {
     #[account(mut)]
     buyer: Signer<'info>,
 
-    #[account(has_one = payment_vault, has_one = creator)]
+    #[account(has_one = payment_vault, has_one = nft_info_account)]
     collection: Box<Account<'info, Collection>>,
-    #[account(
-        has_one = collection, has_one = nft_info_account,
-        constraint = content.nft_info_account != Pubkey::default()
-    )]
-    content: Box<Account<'info, Content>>,
     #[account( 
+        mut,
         has_one = master_edition, has_one = master_edition_metadata, 
-        has_one = master_edition_vault
+        has_one = master_edition_vault, has_one = master_edition_mint
     )]
     nft_info_account: Box<Account<'info, NftDetails>>,
+    #[account(mut)]
     payment_vault: Account<'info, TokenAccount>,
-    /// CHECK: Checks done by has_one constraint
-    creator: AccountInfo<'info>,
 
     /// CHECK: Checks done by CPI to the mpl_token_metadata program
-    //#[account(mut)]
     master_edition_vault: UncheckedAccount<'info>,
     /// CHECK: Checks done by CPI to the mpl_token_metadata program
     #[account(mut)]
     master_edition: UncheckedAccount<'info>,
     /// CHECK: Checks done by CPI to the mpl_token_metadata program
     master_edition_metadata: UncheckedAccount<'info>,
-    //master_edition_mint: UncheckedAccount<'info>,
+    /// CHECK: 
+    #[account(mut)]
+    master_edition_mint: UncheckedAccount<'info>,
     
     /// CHECK: Checks done by CPI to the mpl_token_metadata program
-    #[account(mut, constraint = new_mint.key() != nft_info_account.master_edition_mint)]
-    new_mint: UncheckedAccount<'info>,
+    #[account(mut, signer, constraint = new_mint.key() != nft_info_account.master_edition_mint)]
+    new_mint: AccountInfo<'info>,
     /// CHECK: Checks done by CPI to the mpl_token_metadata program
     #[account(mut)]
     new_metadata: UncheckedAccount<'info>,
-    //#[account(mut)]
-    //token_metadata_program: UncheckedAccount<'info>,
     /// CHECK: Checks done by CPI to the mpl_token_metadata program
     #[account(mut)]
     print_edition: UncheckedAccount<'info>,
     /// CHECK: Checks done by CPI to the mpl_token_metadata program
     #[account(mut)]
     edition_mark_pda: UncheckedAccount<'info>,
-    /*
-    pda of ['metadata', token_metadata_program id, master metadata mint id, 'edition', edition_number]) 
-    where edition_number is NOT the edition number you pass in args but actually edition_number
-    = floor(edition/EDITION_MARKER_BIT_SIZE)
-
-    EDITION_MARKER_BIT_SIZE = 248?
-
-    pub const MAX_EDITION_MARKER_SIZE: usize = 32;
-    */
 
     #[account(
         mut,
@@ -563,16 +539,14 @@ pub struct MintNft<'info> {
         constraint = buyer_token_account.amount >= nft_info_account.mint_price @SolomonError::InsufficientBalance,
     )]
     buyer_token_account: Box<Account<'info, TokenAccount>>,
-    #[account(
-        init_if_needed,
-        payer = buyer,
-        associated_token::mint = new_mint,
-        associated_token::authority = buyer,
-    )]
-    buyer_nft_vault: Box<Account<'info, TokenAccount>>,
+    /// CHECK:
+    #[account(mut)]
+    buyer_nft_vault: UncheckedAccount<'info>,
 
     token_program: Program<'info, Token>,
     associated_token_program: Program<'info, AssociatedToken>,
+    /// CHECK: 
+    token_metadata_program: UncheckedAccount<'info>,
     system_program: Program<'info, System>,
     rent: Sysvar<'info, Rent>,
 }
@@ -581,6 +555,7 @@ pub struct MintNft<'info> {
 pub struct Creator {
     creator: Pubkey,
     username: String, // Max len 20
+    profile_picture_cid: String,
     join_date: i64,
     description: String, // Max len 40
     bump: u8,
@@ -590,13 +565,15 @@ pub struct Creator {
 impl Creator {
     const MAX_DESCRIPTION_LEN: usize = 40;
     const MAX_USERNAME_LEN: usize = 20;
+    const CID_LEN: usize = 50;
 
-    const SIZE: usize = 32 + (4 + Self::MAX_USERNAME_LEN) + 8 + 
-        (4 + Self::MAX_DESCRIPTION_LEN) + 1 + 8; 
+    const SIZE: usize = 32 + (4 + Self::MAX_USERNAME_LEN) + (4 + Self::CID_LEN)+ 
+        8 + (4 + Self::MAX_DESCRIPTION_LEN) + 1 + 8; 
 }
 
 #[account]
 pub struct Collection {
+    id: u64,
     creator: Pubkey,
     title: String, // Max len 20
     created_at: i64,
@@ -605,11 +582,15 @@ pub struct Collection {
     items: u64,
     purchase_mint: Pubkey,
     payment_vault: Pubkey,
+    cover_art_cid: String,
+    nft_info_account: Pubkey,
+    bump: u8,
 }
 
 impl Collection {
+    const CID_LEN: usize = 50;
     const MAX_TITLE_LEN: usize = 20;
-    const SIZE: usize = 32 + (4 + Self::MAX_TITLE_LEN) + 8 + 8 + 1 + 8 + 32 + 32;
+    const SIZE: usize = 1 + 32 + (4 + Self::MAX_TITLE_LEN) + 8 + 8 + 1 + 8 + 32 + 32 + (4 + Self::CID_LEN) + 32 + 1;
 }
 
 #[account]
@@ -617,22 +598,20 @@ pub struct Content {
     creator: Pubkey,
     collection: Pubkey,
     title: String, // Max len 20
-    art_type: u8,
     content_cid: String,
-    cover_art_cid: String,
-    nft_info_account: Pubkey,
 }
 
 impl Content {
     const MAX_TITLE_LEN: usize = 20;
     const CID_LEN: usize = 50;
 
-    const SIZE: usize = 32 + 32 + (4 + Self::MAX_TITLE_LEN) + 1 + (4 + Self::CID_LEN) + (4 + Self::CID_LEN)+ 32;
+    const SIZE: usize = 32 + 32 + (4 + Self::MAX_TITLE_LEN) + (4 + Self::CID_LEN);
 }
 
 #[account]
 pub struct NftDetails {
-    content: Pubkey,
+    collection: Pubkey,
+    //purchase_mint: Pubkey,
     mint_price: u64,
     max_print_editions: u64,
     minted_copies: u64,
@@ -693,16 +672,8 @@ pub enum SolomonError {
     MaxSymbolLengthExceeded,
     MaxURILengthExceeded,
     InsufficientBalance,
+    #[msg("Content type should match collection")]
+    ArtTypeMisMatch,
 }
 
-// Add checks to uncheckedAccounts
-// implement transfer logic
-// figure out how edition mark pda works
-// calculate account size correctly
-// implement better error handling
-// do experiment in a new anchor project to check solana default values
-// use "collections" concept?
-// delete redundant accounts from validators
 
-// Check what CID is, check what URI would be for a project stored on arweave
-// are they the same?
