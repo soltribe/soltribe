@@ -10,7 +10,7 @@ use anchor_spl::{
 
 use mpl_token_metadata::{instruction as mpl_instruction, ID as TOKEN_METADATA_PROGRAM_ID};
 
-declare_id!("Hw5exfHf8wV8yaCETfJTdTCmkeDotsJsn8biptSd8pM7");
+declare_id!("2BUzF1GbkamgZr8bgsPMXwETHJp7uBiVf3B22BXpWFYn");
 
 pub const EDITION_MARKER_BIT_SIZE: u64 = 248;
 pub const PREFIX: &str = "metadata";
