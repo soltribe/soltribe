@@ -6,39 +6,48 @@ import { Solomon } from "../target/types/solomon";
 
 type ProgramType = anchor.Program<Solomon>;
 
+export enum ArtType {
+    Writing = 1,
+    Video = 2,
+    Music = 3,
+    Painting = 4,
+    Design  = 5,
+    Photography = 6,
+    Adult = 7,
+  };
+
 export const createNewBundlrInstance = async () => {
-    //const jwk = JSON.parse(fs.readFileSync("arweave_keypair.json").toString());
-    //const bundlr = new Bundlr("http://node1.bundlr.network", "arweave", jwk);
     const jwk = JSON.parse(fs.readFileSync("tests/keypairs/solana.json").toString());
     const bundlr = new Bundlr("https://devnet.bundlr.network", "solana", jwk, { providerUrl: "https://api.devnet.solana.com" });
-    console.log("log::[] Created New Bundlr instance")
+    console.log("Created new Bundlr instance");
+    let response = await bundlr.fund(100_000_000);
+    console.log("Funded bundlr wallet with 100_000_000 units");
+    let balance = await bundlr.getBalance(bundlr.address);
+    console.log("Bundlr balance: ", balance.toNumber());
     return bundlr;
 }
 
-export const airdropToWallet = async (connection: anchor.web3.Connection, destination: anchor.web3.PublicKey, amount) => {
-    const airdropSignature = await connection.requestAirdrop(destination, amount * anchor.web3.LAMPORTS_PER_SOL);
-
-    const latestBlockHash = await connection.getLatestBlockhash();
-    await connection.confirmTransaction({
-      blockhash: latestBlockHash.blockhash,
-      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-      signature: airdropSignature,
-    });
-    console.log(`log::[] Airdropped ${amount} sol to ${destination}!`);
+export const createBundlrFromSecretKey = async (secretKey) => {
+    const bundlr = new Bundlr("https://devnet.bundlr.network", "solana", secretKey, { providerUrl: "https://api.devnet.solana.com" });
+    console.log("Created new Bundlr instance");
+    let response = await bundlr.fund(100_000_000);
+    console.log("Funded bundlr wallet with 100_000_000 units");
+    return bundlr;
 }
 
-export const generateCreatorPDA = async (program: ProgramType, username: string) 
+
+export const generateCreatorPDA = async (program: ProgramType, creator: anchor.web3.PublicKey) 
 :Promise<[anchor.web3.PublicKey, number]> => {
     let [pda, bump] = await anchor.web3.PublicKey.findProgramAddress([Buffer.from(anchor.utils.bytes.utf8.encode("creator")),
-        Buffer.from(anchor.utils.bytes.utf8.encode(username))], program.programId);
+        creator.toBuffer()], program.programId);
 
     return [pda, bump];
 }
 
-export const generateCollectionPDA = async (program: ProgramType, creator: anchor.web3.PublicKey, title: string) 
+export const generateCollectionPDA = async (program: ProgramType, creator: anchor.web3.PublicKey, id: number) 
 :Promise<[anchor.web3.PublicKey, number]> => {
     let [pda, bump] = await anchor.web3.PublicKey.findProgramAddress([Buffer.from(anchor.utils.bytes.utf8.encode("collection")),
-        creator.toBuffer(), Buffer.from(anchor.utils.bytes.utf8.encode(title))], program.programId);
+        creator.toBuffer(), new anchor.BN(id).toBuffer('le', 8)], program.programId);
 
     return [pda, bump];
 }
@@ -53,9 +62,8 @@ export const generatePaymentVaultPDA = async (program: ProgramType, collection: 
 
 export const generateContentPDA = async(program: ProgramType , id: number, collection: anchor.web3.PublicKey)
 :Promise<[anchor.web3.PublicKey, number]> => {
-    let [pda, bump] = await anchor.web3.PublicKey.findProgramAddress(
-        [new anchor.BN(id).toBuffer('le', 8), collection.toBuffer()], program.programId
-    );
+    let [pda, bump] = await anchor.web3.PublicKey.findProgramAddress([Buffer.from(anchor.utils.bytes.utf8.encode("content")),
+        collection.toBuffer(), new anchor.BN(id).toBuffer('le', 8)], program.programId);
 
     return [pda, bump];
 }
@@ -69,3 +77,19 @@ export const generateNftInfoPDA = async(program: ProgramType, collection: anchor
 
     return [pda, bump];
 }
+
+
+export const createMetadataJson = (name: string, symbol: string, link: string, description: string) => {
+    let json: String = `{
+        "name": "${name}",
+        "symbol": "${symbol}",
+        "description": "${description}",
+        "seller_fee_basis_points": 1,
+        "external_url": "",
+        "edition": "",
+        "background_color": "000000",
+        "image": "${link}"
+    }`;
+
+    return JSON.stringify(json);
+};

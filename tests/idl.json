@@ -89,6 +89,10 @@
         {
           "name": "artType",
           "type": "u8"
+        },
+        {
+          "name": "artCid",
+          "type": "string"
         }
       ]
     },
@@ -123,15 +127,15 @@
       ],
       "args": [
         {
+          "name": "artType",
+          "type": "u8"
+        },
+        {
           "name": "title",
           "type": "string"
         },
         {
           "name": "contentCid",
-          "type": "string"
-        },
-        {
-          "name": "artCid",
           "type": "string"
         }
       ]
@@ -146,11 +150,6 @@
         },
         {
           "name": "collection",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "content",
           "isMut": true,
           "isSigner": false
         },
@@ -233,11 +232,6 @@
         },
         {
           "name": "collection",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "content",
           "isMut": false,
           "isSigner": false
         },
@@ -394,6 +388,14 @@
           {
             "name": "paymentVault",
             "type": "publicKey"
+          },
+          {
+            "name": "coverArtCid",
+            "type": "string"
+          },
+          {
+            "name": "nftInfoAccount",
+            "type": "publicKey"
           }
         ]
       }
@@ -422,14 +424,6 @@
           {
             "name": "contentCid",
             "type": "string"
-          },
-          {
-            "name": "coverArtCid",
-            "type": "string"
-          },
-          {
-            "name": "nftInfoAccount",
-            "type": "publicKey"
           }
         ]
       }
@@ -440,7 +434,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "content",
+            "name": "collection",
             "type": "publicKey"
           },
           {
@@ -550,6 +544,11 @@
     {
       "code": 6007,
       "name": "InsufficientBalance"
+    },
+    {
+      "code": 6008,
+      "name": "ArtTypeMisMatch",
+      "msg": "Content type should match collection"
     }
   ]
 }
