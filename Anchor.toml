@@ -1,13 +1,13 @@
 [features]
 seeds = false
-[programs.localnet]
-solomon = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+[programs.devnet]
+solomon = "3ZYjtd9hy9JRTNqwFdv7ssywiAVydKMgV8gR7CSaTSCK"
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "/home/ademola/.config/solana/id.json"
 
 [scripts]
