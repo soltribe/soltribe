@@ -1220,7 +1220,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "solomon"
+name = "soltribe"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",

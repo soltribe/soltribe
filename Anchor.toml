@@ -1,7 +1,7 @@
 [features]
 seeds = false
 [programs.devnet]
-solomon = "3ZYjtd9hy9JRTNqwFdv7ssywiAVydKMgV8gR7CSaTSCK"
+soltribe = "Hw5exfHf8wV8yaCETfJTdTCmkeDotsJsn8biptSd8pM7"
 
 [registry]
 url = "https://anchor.projectserum.com"

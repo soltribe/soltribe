@@ -3,7 +3,7 @@ import * as spl from "@solana/spl-token";
 import Bundlr from "@bundlr-network/client"
 import { NodeBundlr  } from "@bundlr-network/client/build/node";
 import { MethodsBuilderFactory, Program } from "@project-serum/anchor";
-import { Solomon } from "../target/types/solomon";
+import { Soltribe } from "../target/types/soltribe";
 import {
   createNewBundlrInstance,
   createBundlrFromSecretKey,
@@ -92,12 +92,12 @@ async function airdrop(connection, destinationWallet: anchor.web3.Keypair, amoun
 }
 
 
-describe("solomon", () => {
+describe("soltribe", () => {
   // Configure the client to use the local cluster.
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.Solomon as Program<Solomon>;
+  const program = anchor.workspace.Soltribe as Program<Soltribe>;
   let creator1: anchor.web3.Keypair;
   let creator2: anchor.web3.Keypair;
   let buyer1: anchor.web3.Keypair;

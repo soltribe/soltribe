@@ -10,14 +10,14 @@ use anchor_spl::{
 
 use mpl_token_metadata::{instruction as mpl_instruction, ID as TOKEN_METADATA_PROGRAM_ID};
 
-declare_id!("3ZYjtd9hy9JRTNqwFdv7ssywiAVydKMgV8gR7CSaTSCK");
+declare_id!("Hw5exfHf8wV8yaCETfJTdTCmkeDotsJsn8biptSd8pM7");
 
 pub const EDITION_MARKER_BIT_SIZE: u64 = 248;
 pub const PREFIX: &str = "metadata";
 pub const EDITION: &str = "edition";
 
 #[program]
-pub mod solomon {
+pub mod soltribe {
     use super::*;
 
     pub fn init_creator(ctx: Context<InitCreator>, username: String, description: String, picture_cid: String) -> Result<()> {
