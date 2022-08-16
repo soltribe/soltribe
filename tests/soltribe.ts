@@ -123,6 +123,7 @@ describe("soltribe", () => {
       let tags = [{name: "Content-type", value: content_type}];
       let tx = bundlr.createTransaction(data, { tags: tags });
       const cost = await bundlr.getPrice(tx.size);
+      console.log("Cost: ", cost.toNumber());
       await tx.sign();
       const result = await tx.upload();
       return tx.id;
