@@ -1,10 +1,10 @@
 import Bundlr from "@bundlr-network/client"
 import * as fs from "fs"
 import * as anchor from '@project-serum/anchor';
-import { Solomon } from "../target/types/solomon";
+import { Soltribe } from "../target/types/soltribe";
 //import * as spl from '@solana/spl-token';
 
-type ProgramType = anchor.Program<Solomon>;
+type ProgramType = anchor.Program<Soltribe>;
 
 export enum ArtType {
     Writing = 1,
