@@ -10,7 +10,7 @@ use anchor_spl::{
 
 use mpl_token_metadata::{instruction as mpl_instruction, ID as TOKEN_METADATA_PROGRAM_ID};
 
-declare_id!("2BUzF1GbkamgZr8bgsPMXwETHJp7uBiVf3B22BXpWFYn");
+declare_id!("BnpJzaCfV9R5UJrqmCmReFRqAGTfAFNSkkcpNr3T6oLf");
 
 pub const EDITION_MARKER_BIT_SIZE: u64 = 248;
 pub const PREFIX: &str = "metadata";
@@ -22,10 +22,10 @@ pub mod soltribe {
 
     pub fn init_creator(ctx: Context<InitCreator>, username: String, description: String, picture_cid: String) -> Result<()> {
         require!(username.len() < Creator::MAX_USERNAME_LEN, 
-            SolomonError::MaxUsernameLengthExceeded);
+            SolTribeError::MaxUsernameLengthExceeded);
         require!(description.len() < Creator::MAX_DESCRIPTION_LEN, 
-            SolomonError::MaxDescriptionLengthExceeded);
-        require!(picture_cid.len() < Creator::CID_LEN, SolomonError::MaxCIDLengthExceeded);
+            SolTribeError::MaxDescriptionLengthExceeded);
+        require!(picture_cid.len() < Creator::CID_LEN, SolTribeError::MaxCIDLengthExceeded);
 
         msg!("creator_account_key: {}", ctx.accounts.creator_account.key());
 
@@ -43,8 +43,8 @@ pub mod soltribe {
     }
 
     pub fn init_collection(ctx: Context<CreateCollection>, title: String, art_type: u8, art_cid: String) -> Result<()> {
-        require!(title.len() <= Collection::MAX_TITLE_LEN, SolomonError::MaxTitleLengthExceeded);
-        require!(art_cid.len() <= Content::CID_LEN, SolomonError::MaxCIDLengthExceeded);
+        require!(title.len() <= Collection::MAX_TITLE_LEN, SolTribeError::MaxTitleLengthExceeded);
+        require!(art_cid.len() <= Content::CID_LEN, SolTribeError::MaxCIDLengthExceeded);
         _ = ArtType::from(art_type).unwrap();
         
         let collection = &mut ctx.accounts.collection;
@@ -70,8 +70,8 @@ pub mod soltribe {
     }
 
     pub fn upload_content(ctx: Context<UploadContent>, title: String, content_cid: String) -> Result<()> {
-        require!(content_cid.len() <= Content::CID_LEN, SolomonError::MaxCIDLengthExceeded);
-        require!(title.len() <= Content::MAX_TITLE_LEN, SolomonError::MaxTitleLengthExceeded);
+        require!(content_cid.len() <= Content::CID_LEN, SolTribeError::MaxCIDLengthExceeded);
+        require!(title.len() <= Content::MAX_TITLE_LEN, SolTribeError::MaxTitleLengthExceeded);
 
         let clock = clock::Clock::get().unwrap();
 
@@ -95,9 +95,9 @@ pub mod soltribe {
         mint_price: u64,
         max_supply: u64,
     ) -> Result<()> {
-        require!(metadata_symbol.len() < NftDetails::MAX_SYMBOL_LEN, SolomonError::MaxSymbolLengthExceeded);
-        require!(metadata_title.len() < NftDetails::MAX_TITLE_LEN, SolomonError::MaxTitleLengthExceeded);
-        require!(metadata_uri.len() < NftDetails::URI_LEN, SolomonError::MaxURILengthExceeded);
+        require!(metadata_symbol.len() < NftDetails::MAX_SYMBOL_LEN, SolTribeError::MaxSymbolLengthExceeded);
+        require!(metadata_title.len() < NftDetails::MAX_TITLE_LEN, SolTribeError::MaxTitleLengthExceeded);
+        require!(metadata_uri.len() < NftDetails::URI_LEN, SolTribeError::MaxURILengthExceeded);
         let collection_key = ctx.accounts.collection.key();
         let collection = mpl_token_metadata::state::Collection {
             verified: false,
@@ -536,7 +536,7 @@ pub struct MintNft<'info> {
         mut,
         constraint = buyer_token_account.owner == buyer.key(),
         constraint = buyer_token_account.mint == collection.purchase_mint,
-        constraint = buyer_token_account.amount >= nft_info_account.mint_price @SolomonError::InsufficientBalance,
+        constraint = buyer_token_account.amount >= nft_info_account.mint_price @SolTribeError::InsufficientBalance,
     )]
     buyer_token_account: Box<Account<'info, TokenAccount>>,
     /// CHECK:
@@ -644,7 +644,7 @@ pub enum ArtType {
 }
 
 impl ArtType {
-    fn from(val: u8) -> std::result::Result<ArtType, SolomonError> {
+    fn from(val: u8) -> std::result::Result<ArtType, SolTribeError> {
         match val {
             1 => Ok(ArtType::Writing),
             2 => Ok(ArtType::Video),
@@ -655,7 +655,7 @@ impl ArtType {
             7 => Ok(ArtType::Adult),
             invalid_type => {
                 msg!("Invalid art type: {}", invalid_type);
-                Err(SolomonError::InvalidArtTypeConversion)
+                Err(SolTribeError::InvalidArtTypeConversion)
             }
         }
     }
@@ -663,7 +663,7 @@ impl ArtType {
 
 
 #[error_code]
-pub enum SolomonError {
+pub enum SolTribeError {
     MaxUsernameLengthExceeded,
     MaxDescriptionLengthExceeded,
     MaxTitleLengthExceeded,
