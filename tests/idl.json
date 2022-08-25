@@ -29,6 +29,10 @@
         {
           "name": "description",
           "type": "string"
+        },
+        {
+          "name": "pictureCid",
+          "type": "string"
         }
       ]
     },
@@ -42,22 +46,12 @@
         },
         {
           "name": "creatorAccount",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
           "name": "collection",
           "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "paymentVault",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "mint",
-          "isMut": false,
           "isSigner": false
         },
         {
@@ -111,7 +105,7 @@
         },
         {
           "name": "collection",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
@@ -126,10 +120,6 @@
         }
       ],
       "args": [
-        {
-          "name": "artType",
-          "type": "u8"
-        },
         {
           "name": "title",
           "type": "string"
@@ -197,6 +187,11 @@
           "name": "rent",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "tokenMetadataProgram",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -232,22 +227,12 @@
         },
         {
           "name": "collection",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
           "name": "nftInfoAccount",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "paymentVault",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "creator",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
@@ -266,9 +251,14 @@
           "isSigner": false
         },
         {
-          "name": "newMint",
+          "name": "masterEditionMint",
           "isMut": true,
           "isSigner": false
+        },
+        {
+          "name": "newMint",
+          "isMut": true,
+          "isSigner": true
         },
         {
           "name": "newMetadata",
@@ -286,11 +276,6 @@
           "isSigner": false
         },
         {
-          "name": "buyerTokenAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "buyerNftVault",
           "isMut": true,
           "isSigner": false
@@ -302,6 +287,11 @@
         },
         {
           "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMetadataProgram",
           "isMut": false,
           "isSigner": false
         },
@@ -334,6 +324,10 @@
             "type": "string"
           },
           {
+            "name": "profilePictureCid",
+            "type": "string"
+          },
+          {
             "name": "joinDate",
             "type": "i64"
           },
@@ -357,6 +351,10 @@
       "type": {
         "kind": "struct",
         "fields": [
+          {
+            "name": "id",
+            "type": "u64"
+          },
           {
             "name": "creator",
             "type": "publicKey"
@@ -382,20 +380,16 @@
             "type": "u64"
           },
           {
-            "name": "purchaseMint",
-            "type": "publicKey"
-          },
-          {
-            "name": "paymentVault",
-            "type": "publicKey"
-          },
-          {
             "name": "coverArtCid",
             "type": "string"
           },
           {
             "name": "nftInfoAccount",
             "type": "publicKey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
           }
         ]
       }
@@ -416,10 +410,6 @@
           {
             "name": "title",
             "type": "string"
-          },
-          {
-            "name": "artType",
-            "type": "u8"
           },
           {
             "name": "contentCid",
