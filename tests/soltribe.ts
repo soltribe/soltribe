@@ -19,33 +19,6 @@ import { writeFile, readFileSync } from "fs";
 import { assert } from "chai";
 import { ASSOCIATED_TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
 
-async function createTokenMint (connection: anchor.web3.Connection, mintAuthority: anchor.web3.Keypair)
-: Promise<[anchor.web3.PublicKey, anchor.web3.Keypair]> {
-
-    const airdropSignature3 = await connection.requestAirdrop(
-        mintAuthority.publicKey, 2 * anchor.web3.LAMPORTS_PER_SOL);
-
-    const latestBlockHash3 = await connection.getLatestBlockhash();
-    const mintAirdropTx = await connection.confirmTransaction({
-      blockhash: latestBlockHash3.blockhash,
-      lastValidBlockHeight: latestBlockHash3.lastValidBlockHeight,
-      signature: airdropSignature3,
-    });
-  
-    const mintAuthorityBalance = await connection.getBalance(mintAuthority.publicKey);
-  
-    let mintAddress = await spl.createMint(
-      connection,
-      mintAuthority,
-      mintAuthority.publicKey,
-      null,
-      0
-    );
-    console.log(`Token mint created with address: ${mintAddress.toBase58()}`);
-  
-    return [mintAddress, mintAuthority];
-}
-
 
 async function createAssociatedTokenAccount(program, account: anchor.web3.Keypair, mint: anchor.web3.PublicKey)
 : Promise<anchor.web3.PublicKey> {
@@ -60,39 +33,8 @@ async function createAssociatedTokenAccount(program, account: anchor.web3.Keypai
     return wallet;
 }
 
-async function mintTokensToWallet(wallet: anchor.web3.PublicKey, amount: number, feePayer: anchor.web3.Keypair, 
-    mintAddress: anchor.web3.PublicKey, mintAuthority: anchor.web3.Keypair, program) {
-    let tx = await spl.mintToChecked(
-        program.provider.connection,
-        feePayer,
-        mintAddress,
-        wallet,
-        mintAuthority,
-        amount * 1e0,
-        0
-    );
 
-    console.log(`Minted ${amount} tokens to ${wallet}`);
-}
-
-async function airdrop(connection, destinationWallet: anchor.web3.Keypair, amount: number) {
-  const airdropSignature = await connection.requestAirdrop(destinationWallet
-    .publicKey, amount * anchor.web3.LAMPORTS_PER_SOL);
-
-  const latestBlockHash = await connection.getLatestBlockhash();
-
-  await connection.confirmTransaction({
-    blockhash: latestBlockHash.blockhash,
-    lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-    signature: airdropSignature,
-  });
-//console.log(`Airdropped ${amount} sol to ${destinationWallet.publicKey}!`);
-//let balance = await connection.getBalance(destinationWallet.publicKey);
-//console.log("balance: ", balance);
-}
-
-
-describe("soltribe", () => {
+describe("soltribe", async () => {
   // Configure the client to use the local cluster.
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
@@ -100,9 +42,22 @@ describe("soltribe", () => {
   const program = anchor.workspace.Soltribe as Program<Soltribe>;
   let creator1: anchor.web3.Keypair;
   let creator2: anchor.web3.Keypair;
-  let buyer1: anchor.web3.Keypair;
-  let buyer2: anchor.web3.Keypair;
-  let buyer3: anchor.web3.Keypair;
+  let buyer1 = anchor.web3.Keypair.generate();
+  let buyer2 = anchor.web3.Keypair.generate();
+  let buyer3 = anchor.web3.Keypair.generate();
+
+  async function airdrop(connection, destinationWallet: anchor.web3.Keypair) {
+    const airdropSignature = await connection.requestAirdrop(destinationWallet
+      .publicKey, 1 * anchor.web3.LAMPORTS_PER_SOL);
+  
+    const latestBlockHash = await connection.getLatestBlockhash();
+  
+    await connection.confirmTransaction({
+      blockhash: latestBlockHash.blockhash,
+      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+      signature: airdropSignature,
+    });
+  }
 
   let tokenCreator = anchor.web3.Keypair.generate();
   console.log("token program: ", spl.TOKEN_PROGRAM_ID.toString());
@@ -111,12 +66,11 @@ describe("soltribe", () => {
 
 
   it("Is initialized!", async () => {
-    await airdrop(provider.connection, tokenCreator, 2);
-    let [paymentMint, mintAuthority] = await createTokenMint(provider.connection, tokenCreator);
+    await airdrop(provider.connection, tokenCreator);
 
     console.log("\n\n=> INFO!:: INITIALIZE CREATOR1'S ACCOUNT");
     creator1 = anchor.web3.Keypair.generate();
-    await airdrop(provider.connection, creator1, 2);
+    await airdrop(provider.connection, creator1);
     const [creatorAccount1, bump] = await generateCreatorPDA(program, creator1.publicKey);
 
     async function uploadToArweave(data, bundlr: NodeBundlr, content_type: string): Promise<string> {
@@ -168,8 +122,6 @@ describe("soltribe", () => {
         creator: creator1.publicKey,
         creatorAccount: creatorAccount1,
         collection: collectionPDA,
-        paymentVault: vaultPDA,
-        mint: paymentMint,
       })
       .signers([creator1])
       .rpc();
@@ -179,8 +131,6 @@ describe("soltribe", () => {
     assert.equal(collectionState.title, collectionTitle);
     assert.equal(collectionState.artType, collectionType);
     assert.equal(collectionState.items.toNumber(), 0);
-    assert.ok(collectionState.purchaseMint.equals(paymentMint));
-    assert.ok(collectionState.paymentVault.equals(vaultPDA));
     assert.equal(collectionState.coverArtCid, coverArtCID);
     assert.ok(collectionState.nftInfoAccount.equals(anchor.web3.PublicKey.default));
 
@@ -210,7 +160,6 @@ describe("soltribe", () => {
         })
         .signers([creator])
         .rpc();
-      console.log("xxxxx");
 
       collectionState = await program.account.collection.fetch(collection);
       assert.equal(collectionState.items.toNumber(), initialCount + 1);
@@ -231,7 +180,6 @@ describe("soltribe", () => {
       "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
     let masterEditionMint = anchor.web3.Keypair.generate();
-    //let masterEditionMint = masterMint;
     
     let nftData = readFileSync("tests/content/creator1/creator1.jpeg");
     let coverArt = await uploadToArweave(nftData, bundlr1, "image/jpeg");
@@ -247,7 +195,7 @@ describe("soltribe", () => {
     let metadataUri = "https://www.arweave.net/" + nftImageCID;
     console.log("metadata Uri link: ", metadataUri);
 
-    let mintPrice = new anchor.BN(5);
+    let mintPrice = new anchor.BN(1);
     let maxSupply = new anchor.BN(2);
 
     let masterEditionVault = await spl.getAssociatedTokenAddress(masterEditionMint.publicKey, collectionPDA, true);
@@ -316,11 +264,7 @@ describe("soltribe", () => {
       console.log("\n\n LOG!:: PRINTING NEW EDITION...");
       const EDITION_MARKER_BIT_SIZE = 248;
 
-      await airdrop(provider.connection, buyer, 2);
       let newMint = anchor.web3.Keypair.generate();
-
-      let buyerWallet = await createAssociatedTokenAccount(program, buyer, paymentMint);
-      await mintTokensToWallet(buyerWallet, 10, buyer, paymentMint, mintAuthority, program);
       let buyerNftVault = await spl.getAssociatedTokenAddress(newMint.publicKey, buyer.publicKey);
 
       const printEditionMetadata = (
@@ -347,14 +291,14 @@ describe("soltribe", () => {
         Buffer.from("metadata"), TOKEN_METADATA_PROGRAM_ID.toBuffer(), masterEditionMint.publicKey.toBuffer(),
         Buffer.from("edition"), Buffer.from(editionNumber.toString())], TOKEN_METADATA_PROGRAM_ID
       ))[0];
-  
+
+      console.log("111111");
       await program.methods
         .purchaseNft()
         .accounts({
           buyer: buyer.publicKey,
           collection: collectionPDA,
           nftInfoAccount: nftInfo,
-          paymentVault: vaultPDA,
           masterEditionVault: masterEditionVault,
           masterEdition: masterEditionAddress,
           masterEditionMetadata: metadataAddress,
@@ -362,27 +306,28 @@ describe("soltribe", () => {
           newMetadata: printEditionMetadata,
           printEdition: printEdition,
           editionMarkPda: editionMarkPDA,
-          buyerTokenAccount: buyerWallet,
           buyerNftVault: buyerNftVault,
           masterEditionMint: masterEditionMint.publicKey,
           tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
         })
         .signers([buyer, newMint]) 
         .rpc();
+      console.log("222222");
 
       console.log("buyer: ", buyer.publicKey.toString());
       console.log("buyerNftVault: ", masterEditionVault.toString());
       console.log("newEditionMint: ", newMint.publicKey.toString());
     }
 
-    buyer1 = anchor.web3.Keypair.generate();
-    await printNewEdition(buyer1);
+    // Airdrop sol to buyer account to test payment
+    await airdrop(provider.connection, buyer1);
+    await airdrop(provider.connection, buyer2);
+    await airdrop(provider.connection, buyer3);
 
-    let buyer2 = anchor.web3.Keypair.generate();
+    await printNewEdition(buyer1);
     await printNewEdition(buyer2);
 
     try {
-    buyer3 = anchor.web3.Keypair.generate();
     await printNewEdition(buyer3);
     chai.assert(false, "should fail because max editions printed")
     } catch(_err) {}
@@ -408,8 +353,6 @@ describe("soltribe", () => {
         creator: creator1.publicKey,
         creatorAccount: creatorAccount1,
         collection: collectionPDA,
-        paymentVault: vaultPDA,
-        mint: paymentMint,
       })
       .signers([creator1])
       .rpc();
@@ -419,8 +362,6 @@ describe("soltribe", () => {
     assert.equal(collectionState.title, collectionTitle);
     assert.equal(collectionState.artType, collectionType);
     assert.equal(collectionState.items.toNumber(), 0);
-    assert.ok(collectionState.purchaseMint.equals(paymentMint));
-    assert.ok(collectionState.paymentVault.equals(vaultPDA));
     assert.equal(collectionState.coverArtCid, coverArtCID);
     assert.ok(collectionState.nftInfoAccount.equals(anchor.web3.PublicKey.default));
 
@@ -438,7 +379,7 @@ describe("soltribe", () => {
 
     console.log("\n\n=> INFO!:: INITIALIZE CREATOR2'S ACCOUNT");
     creator2 = anchor.web3.Keypair.generate();
-    await airdrop(provider.connection, creator2, 2);
+    await airdrop(provider.connection, creator2);
     const [creatorAccount2, bump2] = await generateCreatorPDA(program, creator2.publicKey);
     
     let bundlr2 = await createBundlrFromSecretKey(creator1.secretKey);
@@ -480,8 +421,6 @@ describe("soltribe", () => {
         creator: creator2.publicKey,
         creatorAccount: creatorAccount2,
         collection: collectionPDA,
-        paymentVault: vaultPDA,
-        mint: paymentMint,
       })
       .signers([creator2])
       .rpc();
@@ -491,8 +430,6 @@ describe("soltribe", () => {
     assert.equal(collectionState.title, collectionTitle);
     assert.equal(collectionState.artType, collectionType);
     assert.equal(collectionState.items.toNumber(), 0);
-    assert.ok(collectionState.purchaseMint.equals(paymentMint));
-    assert.ok(collectionState.paymentVault.equals(vaultPDA));
     assert.equal(collectionState.coverArtCid, coverArtCID);
     assert.ok(collectionState.nftInfoAccount.equals(anchor.web3.PublicKey.default));
 
