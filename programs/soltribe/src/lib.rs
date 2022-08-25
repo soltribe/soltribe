@@ -4,7 +4,7 @@ use anchor_lang:: {
     solana_program::{program::{invoke, invoke_signed}, clock},
 };
 use anchor_spl::{ 
-    token::{Token, Mint, TokenAccount, Transfer},
+    token::{Token},
     associated_token::AssociatedToken
 };
 
@@ -57,8 +57,8 @@ pub mod soltribe {
         collection.last_updated = clock.unix_timestamp;
         collection.art_type = art_type;
         collection.items = 0;
-        collection.purchase_mint = ctx.accounts.mint.key();
-        collection.payment_vault = ctx.accounts.payment_vault.key();
+        //collection.purchase_mint = ctx.accounts.mint.key();
+        //collection.payment_vault = ctx.accounts.payment_vault.key();
         collection.cover_art_cid = art_cid;
         collection.nft_info_account = Pubkey::default();
         collection.bump = *ctx.bumps.get("collection").unwrap();
@@ -363,19 +363,18 @@ pub mod soltribe {
 
         nft_info.minted_copies = edition;
 
-        // Make transfer as payment for minting
-        msg!("initializing transfer");
+        // Make transfer to collection as payment for minting
         let price = nft_info.mint_price;
-        anchor_spl::token::transfer(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                Transfer {
-                    from: ctx.accounts.buyer_token_account.to_account_info(),
-                    to: ctx.accounts.payment_vault.to_account_info(),
-                    authority: ctx.accounts.buyer.to_account_info(),
-                }
+        invoke(
+            &anchor_lang::solana_program::system_instruction::transfer(
+                &ctx.accounts.buyer.key(),
+                &ctx.accounts.collection.key(),
+                price
             ),
-            price
+            &[
+                ctx.accounts.buyer.to_account_info(),
+                ctx.accounts.collection.to_account_info(),
+            ]
         )?;
         Ok(())
     }
@@ -410,17 +409,6 @@ pub struct CreateCollection<'info> {
         bump
     )]
     collection: Box<Account<'info, Collection>>,
-    mint: Box<Account<'info, Mint>>,
-
-    #[account(
-        init,
-        payer = creator,
-        seeds = ["vault".as_bytes().as_ref(), collection.key().as_ref()],
-        bump,
-        token::mint = mint,
-        token::authority = collection,
-    )]
-    payment_vault: Box<Account<'info, TokenAccount>>,
 
     token_program: Program<'info, Token>, 
     associated_token_program: Program<'info, AssociatedToken>,
@@ -497,7 +485,7 @@ pub struct MintNft<'info> {
     #[account(mut)]
     buyer: Signer<'info>,
 
-    #[account(has_one = payment_vault, has_one = nft_info_account)]
+    #[account(mut, has_one = nft_info_account)]
     collection: Box<Account<'info, Collection>>,
     #[account( 
         mut,
@@ -505,8 +493,6 @@ pub struct MintNft<'info> {
         has_one = master_edition_vault, has_one = master_edition_mint
     )]
     nft_info_account: Box<Account<'info, NftDetails>>,
-    #[account(mut)]
-    payment_vault: Account<'info, TokenAccount>,
 
     /// CHECK: Checks done by CPI to the mpl_token_metadata program
     master_edition_vault: UncheckedAccount<'info>,
@@ -532,13 +518,6 @@ pub struct MintNft<'info> {
     #[account(mut)]
     edition_mark_pda: UncheckedAccount<'info>,
 
-    #[account(
-        mut,
-        constraint = buyer_token_account.owner == buyer.key(),
-        constraint = buyer_token_account.mint == collection.purchase_mint,
-        constraint = buyer_token_account.amount >= nft_info_account.mint_price @SolTribeError::InsufficientBalance,
-    )]
-    buyer_token_account: Box<Account<'info, TokenAccount>>,
     /// CHECK:
     #[account(mut)]
     buyer_nft_vault: UncheckedAccount<'info>,
@@ -580,8 +559,8 @@ pub struct Collection {
     last_updated: i64,
     art_type: u8,
     items: u64,
-    purchase_mint: Pubkey,
-    payment_vault: Pubkey,
+    //purchase_mint: Pubkey,
+    //payment_vault: Pubkey,
     cover_art_cid: String,
     nft_info_account: Pubkey,
     bump: u8,
@@ -590,7 +569,7 @@ pub struct Collection {
 impl Collection {
     const CID_LEN: usize = 50;
     const MAX_TITLE_LEN: usize = 20;
-    const SIZE: usize = 1 + 32 + (4 + Self::MAX_TITLE_LEN) + 8 + 8 + 1 + 8 + 32 + 32 + (4 + Self::CID_LEN) + 32 + 1;
+    const SIZE: usize = 1 + 32 + (4 + Self::MAX_TITLE_LEN) + 8 + 8 + 1 + 8 + (4 + Self::CID_LEN) + 32 + 1;
 }
 
 #[account]
@@ -676,4 +655,21 @@ pub enum SolTribeError {
     ArtTypeMisMatch,
 }
 
+
+/*
+pub fn withdraw_from_pda(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
+    let reciever_account = &mut ctx.accounts.reciever;
+    let program_account = &mut ctx.accounts.program_account;
+    let amount_to_be_sent = amount;
+
+    **program_account.try_borrow_mut_lamports()? = program_account
+        .lamports()
+        .checked_sub(amount_to_be_sent)
+        .ok_or(ProgramError::InvalidArgument)?;
+    **reciever_account.try_borrow_mut_lamports()? = reciever_account
+        .lamports()
+        .checked_add(amount_to_be_sent)
+        .ok_or(ProgramError::InvalidArgument)?;
+    Ok(())
+}*/
 
